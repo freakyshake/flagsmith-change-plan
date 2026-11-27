@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # install-hooks.sh: installs the post-commit hook that turns `git revert` of a flag change into an undo offer.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck source=SCRIPTDIR/lib.sh
 . "$here/lib.sh"
-cd "$(repo_root)"
+cd "$(repo_root)" || exit 1
 
 hooks_dir=$(git rev-parse --git-path hooks)
 current=$(git config --get core.hooksPath || true)

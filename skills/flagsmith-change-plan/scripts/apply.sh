@@ -2,9 +2,9 @@
 # apply.sh <plan-id|last> [--confirm yes|<env name>]
 # Applies an approved plan: stale-plan guard -> approval -> change -> verify -> journal commit.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck source=SCRIPTDIR/lib.sh
 . "$here/lib.sh"
-# shellcheck source=fsapi.sh
+# shellcheck source=SCRIPTDIR/fsapi.sh
 . "$here/fsapi.sh"
 
 [[ $# -ge 1 ]] || { sed -n '2,3s/^# //p' "${BASH_SOURCE[0]}"; exit 2; }
@@ -13,10 +13,11 @@ while [[ $# -gt 0 ]]; do
   case $1 in --confirm) supplied=$2; shift 2 ;; *) die "unknown option '$1'" ;; esac
 done
 
-cd "$(repo_root)"
+cd "$(repo_root)" || exit 1
 if [[ $id == last ]]; then
-  pf=$(ls -1 "$PLANS_DIR"/*.plan 2>/dev/null | sort | tail -n1) || true
-  [[ -n $pf ]] || die "no plans in $PLANS_DIR"
+  plans=("$PLANS_DIR"/*.plan)
+  [[ -e ${plans[0]} ]] || die "no plans in $PLANS_DIR"
+  pf=${plans[${#plans[@]}-1]}
 else
   pf="$PLANS_DIR/$id.plan"
 fi

@@ -2,9 +2,9 @@
 # undo.sh [last|<change-id>] [--confirm yes|<env name>] [--no-commit]
 # Zero-token undo of a journaled change: drift check -> experiment check -> approval -> restore -> verify -> commit.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck source=SCRIPTDIR/lib.sh
 . "$here/lib.sh"
-# shellcheck source=fsapi.sh
+# shellcheck source=SCRIPTDIR/fsapi.sh
 . "$here/fsapi.sh"
 
 id=${1:-last}; [[ $# -gt 0 ]] && shift
@@ -13,13 +13,15 @@ while [[ $# -gt 0 ]]; do
   case $1 in --confirm) supplied=$2; shift 2 ;; --no-commit) commit=0; shift ;; *) die "unknown option '$1'" ;; esac
 done
 
-cd "$(repo_root)"
+cd "$(repo_root)" || exit 1
 undone() { [[ -f $UNDONE_DIR/$1.undo ]] || git log -1 --format=%H --grep="^flag-undo($1)" | grep -q .; }
 
 if [[ $id == last ]]; then
   id=""
-  for f in $(ls -1 "$CHANGES_DIR"/*.change 2>/dev/null | sort -r); do
-    c=$(basename "$f" .change); undone "$c" || { id=$c; break; }
+  changes=("$CHANGES_DIR"/*.change)
+  for ((k = ${#changes[@]} - 1; k >= 0; k--)); do
+    [[ -e ${changes[k]} ]] || continue
+    c=$(basename "${changes[k]}" .change); undone "$c" || { id=$c; break; }
   done
   [[ -n $id ]] || die "no journaled change left to undo"
 fi

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # preflight.sh: checks tools, login and project binding. Read-only. Prints one line per check.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck source=SCRIPTDIR/lib.sh
 . "$here/lib.sh"
-# shellcheck source=fsapi.sh
+# shellcheck source=SCRIPTDIR/fsapi.sh
 . "$here/fsapi.sh"
 
 ok=1

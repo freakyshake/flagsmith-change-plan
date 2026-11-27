@@ -60,8 +60,8 @@ transition() {
 
 # verify_state <action> <feature> <env_key> <expected>: retries for eventual consistency
 verify_state() {
-  local i got
-  for i in 1 2 3 4 5; do
+  local got
+  for _ in 1 2 3 4 5; do
     got=$(state_of "$1" "$2" "$3")
     [[ $got == "$4" ]] && return 0
     sleep 2
@@ -72,8 +72,8 @@ verify_state() {
 
 # verify_sdk <feature> <env_key> <enabled=true|false>: what an SDK sees (edge API)
 verify_sdk() {
-  local i want=$3
-  for i in 1 2 3 4 5 6; do
+  local want=$3
+  for _ in 1 2 3 4 5 6; do
     if fs eval "$1" -e "$2" --test >/dev/null 2>&1; then [[ $want == enabled=true ]] && return 0
     else [[ $want == enabled=false ]] && return 0; fi
     sleep 3

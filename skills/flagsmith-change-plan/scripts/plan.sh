@@ -2,9 +2,9 @@
 # plan.sh <enable|disable|set-weights|archive> <feature> [-e ENV_KEY] [--weight key=pct ...] [--depth N]
 # Read-only. Builds the impact graph, scores risk, writes .flagsmith/plans/<id>.plan, prints a one-screen report.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck source=SCRIPTDIR/lib.sh
 . "$here/lib.sh"
-# shellcheck source=fsapi.sh
+# shellcheck source=SCRIPTDIR/fsapi.sh
 . "$here/fsapi.sh"
 
 usage() { sed -n '2,3s/^# //p' "${BASH_SOURCE[0]}"; exit 2; }
@@ -23,7 +23,7 @@ done
 case $action in enable|disable|set-weights|archive) ;; *) die "unsupported action '$action' (enable|disable|set-weights|archive)";; esac
 [[ $action != set-weights || ${#weights[@]} -gt 0 ]] || die "set-weights needs --weight key=pct"
 
-cd "$(repo_root)"
+cd "$(repo_root)" || exit 1
 [[ -n $env_key ]] || env_key=$(current_env_key)
 [[ -n $env_key ]] || die "no environment: pass -e <client-side env key> or run 'flagsmith init'"
 env_nm=$(env_name "$env_key"); [[ -n $env_nm ]] || die "environment key not found in this project"
