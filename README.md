@@ -15,7 +15,7 @@ PLAN 20261127T201944Z-disable-new_checkout
   change      disable new_checkout in Production (protected)  [enabled=true -> false]
   risk        HIGH  (protected environment; 1 CI gate(s) will fail; switches off 2 live code path(s); 1 co-located flag(s) to review)
   code        src/cart.js (4), src/checkout.js (4)
-  ci-gate     .github/workflows/deploy.yml (15)
+  ci-gate     .github/workflows/deploy.yml (line 15, env not pinned)
   related     express_pay
   will-run    flagsmith flag update new_checkout --disable -e 9DAFVtZYKE2PEwieHu4VKA
   rollback    flagsmith flag update new_checkout --enable -e 9DAFVtZYKE2PEwieHu4VKA
@@ -125,7 +125,16 @@ The seed covers every risk level: `new_checkout` (HIGH in Production: CI gate an
 
 ## Benchmark
 
-See [BENCHMARK.md](BENCHMARK.md): the same request, *"what happens if we turn off new_checkout in Production?"*, run headless in Claude Code with and without the skill.
+Same request (*"what happens if we turn off new_checkout in Production?"*), headless Claude Code, with vs without the skill. Details and the honest caveats are in [BENCHMARK.md](BENCHMARK.md).
+
+| | Without skill | With skill |
+|---|---:|---:|
+| Turns | 12 | **5** |
+| Total tokens processed | 446,509 | **182,895** (2.4× fewer) |
+| Output tokens | 4,485 | **1,851** |
+| Cost | $0.517 | **$0.355** |
+| Wall time | 66.5 s | **33.0 s** |
+| Undo | another agent session | **0 tokens** |
 
 ## Tests
 

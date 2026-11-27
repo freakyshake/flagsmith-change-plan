@@ -90,8 +90,12 @@ scope=(-- . ':(exclude)*.md' ':(exclude)*.txt' ':(exclude).flagsmith')  # docs m
 while IFS=: read -r path line _; do
   [[ -n $path ]] || continue
   if [[ $path == .github/workflows/* ]]; then
-    if sed -n "${line}p" "$path" | grep -qE 'eval(uate)?[^|;&]*--test|--test[^|;&]*eval'; then
-      emit "$F" ci_gate "ci:$path" "$line"
+    gate=$(sed -n "${line}p" "$path")
+    if grep -qE 'eval(uate)?[^|;&]*--test|--test[^|;&]*eval' <<< "$gate"; then
+      pin=""  # which environment does CI evaluate? flag it when nothing pins one
+      grep -qE '(^|[[:space:]])(-e|--environment)[[:space:]=]' <<< "$gate" || grep -q 'FLAGSMITH_ENVIRONMENT' "$path" \
+        || pin=", env not pinned"
+      emit "$F" ci_gate "ci:$path" "line $line$pin"
     fi
   else
     emit "$F" code_ref "file:$path" "$line"
