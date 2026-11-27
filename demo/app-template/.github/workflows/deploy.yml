@@ -1,0 +1,16 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Flagsmith/setup-cli@v1
+      - name: Gate the new checkout rollout on its flag
+        run: flagsmith eval new_checkout --test
+      - run: ./deploy.sh

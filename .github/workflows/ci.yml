@@ -1,0 +1,30 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -x skills/flagsmith-change-plan/scripts/*.sh \
+            skills/flagsmith-change-plan/scripts/hooks/post-commit demo/*.sh
+      - name: graph.awk unit check
+        run: |
+          printf 'flag:f\tci_gate\tci:deploy.yml\t3\nflag:f\tcode_ref\tfile:a.js\t1\n' |
+            awk -v start=flag:f -v action=disable -v protected=1 \
+              -f skills/flagsmith-change-plan/scripts/graph.awk | grep -q $'^RISK\tHIGH'
+  validate-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: skills-ref validate
+        run: |
+          pip install -q "git+https://github.com/agentskills/agentskills.git#subdirectory=skills-ref"
+          skills-ref validate skills/flagsmith-change-plan

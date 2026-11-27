@@ -33,7 +33,7 @@ The goal is **zero install friction**. The skill must run anywhere a coding agen
 ## Data formats
 
 - **Graph edges:** TSV `src<TAB>kind<TAB>dst`, generated per run and never committed.
-- **Journal records:** JSON in `.flagsmith/changes/<id>.json` in the target repo, schema in `references/JOURNAL.md`. Written with `printf` templates. Read back via the CLI's `--jq` where possible, or simple `grep`/`sed` on a fixed one-key-per-line layout.
+- **Journal records:** `key=value` lines in `.flagsmith/changes/<id>.change` in the target repo (schema in `references/JOURNAL.md`). Written with `printf`, read with `sed`. No JSON parsing in bash.
 - **Policy:** `.flagsmith/policy`, a plain `key=value` file (environment allowlist, production patterns).
 
 ## Deliberately NOT used

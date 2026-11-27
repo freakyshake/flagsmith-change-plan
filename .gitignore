@@ -4,8 +4,9 @@
 !.env.example
 flagsmith.env
 
-# local benchmark scratch
+# local benchmark scratch / demo workspace
 .bench/
+.demo-workspace/
 
 # OS / editor
 .DS_Store

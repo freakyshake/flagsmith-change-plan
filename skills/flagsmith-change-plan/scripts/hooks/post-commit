@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Offers a zero-token Flagsmith undo when a flag-change commit is reverted (git revert).
+msg=$(git log -1 --format=%s)
+case $msg in 'Revert "flag-change('*) ;; *) exit 0 ;; esac
+id=${msg#Revert \"flag-change(}; id=${id%%)*}
+[[ -n $id ]] || exit 0
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cmd="bash \"$here/undo.sh\" $id"
+printf '\n[flagsmith-change-plan] Reverted flag change %s. Flagsmith still has the new state.\n' "$id"
+if [[ -r /dev/tty && -w /dev/tty ]] && { : < /dev/tty; } 2>/dev/null; then
+  printf 'Restore it in Flagsmith now (0 tokens)? [y/N] ' > /dev/tty
+  read -r answer < /dev/tty || answer=""
+  if [[ $answer =~ ^[Yy]$ ]]; then
+    bash "$here/undo.sh" "$id" < /dev/tty || printf 'undo did not complete. Run: %s\n' "$cmd"
+    exit 0
+  fi
+fi
+printf 'Run when ready: %s\n' "$cmd"
+exit 0
