@@ -2,6 +2,8 @@
 
 **`terraform plan` for feature flags, with undo that costs zero tokens.**
 
+🌐 **Site:** https://freakyshake.github.io/flagsmith-change-plan/
+
 An [Agent Skill](https://agentskills.io/specification) built on the [Flagsmith CLI](https://github.com/Flagsmith/flagsmith-cli). When a coding agent is asked to flip, re-weight or archive a Flagsmith flag, it no longer fires off a raw `flag update`. It runs a whole, safe workflow:
 
 ```
