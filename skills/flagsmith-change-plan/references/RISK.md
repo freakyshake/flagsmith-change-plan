@@ -21,8 +21,10 @@
 |---|---|
 | `NOOP` | flag already in the requested state |
 | `BLOCKED` | a running experiment on the flag in this environment |
-| `HIGH` | disable/archive with a CI gate · archive while still referenced in code · code references in a protected environment |
-| `MEDIUM` | protected environment · segment or identity overrides present |
+| `HIGH` | disable/archive with a CI gate · archive while still referenced in code · disable in a protected environment while code still references the flag |
+| `MEDIUM` | protected environment (including archive, which is project-wide) · segment or identity overrides present |
+
+Code references exclude `*.md` and `*.txt` (docs mention flags, but they aren't code paths) and `.flagsmith/`.
 | `LOW` | none of the above |
 
 A protected environment is one whose name matches `prod_pattern` (default `prod|live`, case-insensitive), or that is missing from `allow_envs` when an allowlist is set. See JOURNAL.md.

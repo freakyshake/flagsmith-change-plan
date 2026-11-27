@@ -39,7 +39,7 @@ action=$(rec_get "$rec" action) feature=$(rec_get "$rec" feature) fid=$(rec_get 
 env_key=$(rec_get "$rec" env_key) env_nm=$(rec_get "$rec" env_name) protected=$(rec_get "$rec" protected)
 before=$(rec_get "$rec" before) after=$(rec_get "$rec" after)
 
-now=$(state_of "$action" "$feature" "$env_key")
+now=$(state_of "$action" "$feature" "$fid" "$env_key")
 if [[ $now != "$after" ]]; then
   printf 'DRIFT %s: %s in %s is now [%s], journal left it at [%s]\n' "$id" "$feature" "$env_nm" "$now" "$after" >&2
   die "someone changed it since: refusing to overwrite. Review, then plan a new change"
@@ -49,9 +49,9 @@ fi
 printf 'UNDO %s: %s in %s  [%s -> %s]\n' "$id" "$feature" "$env_nm" "$after" "${before#*=}"
 confirm_change "$protected" "$env_nm" "$supplied"
 
-transition "$feature" "$env_key" "$before"
+transition "$feature" "$fid" "$env_key" "$before"
 verified=api
-verify_state "$action" "$feature" "$env_key" "$before" || verified=failed
+verify_state "$action" "$feature" "$fid" "$env_key" "$before" || verified=failed
 
 mkdir -p "$UNDONE_DIR"
 out="$UNDONE_DIR/$id.undo"

@@ -11,7 +11,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           shellcheck -x skills/flagsmith-change-plan/scripts/*.sh \
-            skills/flagsmith-change-plan/scripts/hooks/post-commit demo/*.sh
+            skills/flagsmith-change-plan/scripts/hooks/post-commit demo/*.sh tests/*.sh
       - name: graph.awk unit check
         run: |
           printf 'flag:f\tci_gate\tci:deploy.yml\t3\nflag:f\tcode_ref\tfile:a.js\t1\n' |

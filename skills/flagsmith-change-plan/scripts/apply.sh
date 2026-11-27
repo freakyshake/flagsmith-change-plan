@@ -31,16 +31,16 @@ risk=$(rec_get "$pf" risk)
 [[ ! -f $CHANGES_DIR/$id.change ]] || die "plan $id was already applied"
 case $risk in NOOP|BLOCKED) die "plan risk is $risk: nothing to apply" ;; esac
 
-now=$(state_of "$action" "$feature" "$env_key")
+now=$(state_of "$action" "$feature" "$fid" "$env_key")
 [[ $now == "$before" ]] || die "stale plan: state is now '$now' (planned from '$before'). Re-run plan.sh"
 [[ -z $(running_experiments "$fid" "$env_key") ]] || die "an experiment started on '$feature' since the plan: refusing"
 
 printf 'APPLY %s: %s %s in %s  [%s -> %s]  risk %s\n' "$id" "$action" "$feature" "$env_nm" "$before" "${after#*=}" "$risk"
 confirm_change "$protected" "$env_nm" "$supplied"
 
-transition "$feature" "$env_key" "$after"
+transition "$feature" "$fid" "$env_key" "$after"
 verified=api
-verify_state "$action" "$feature" "$env_key" "$after" || verified=failed
+verify_state "$action" "$feature" "$fid" "$env_key" "$after" || verified=failed
 if [[ $verified == api && $action =~ ^(enable|disable)$ ]]; then
   verify_sdk "$feature" "$env_key" "$after" && verified=api+sdk || verified="api (sdk pending)"
 fi

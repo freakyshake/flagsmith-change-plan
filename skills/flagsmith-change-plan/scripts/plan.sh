@@ -24,18 +24,38 @@ case $action in enable|disable|set-weights|archive) ;; *) die "unsupported actio
 [[ $action != set-weights || ${#weights[@]} -gt 0 ]] || die "set-weights needs --weight key=pct"
 
 cd "$(repo_root)" || exit 1
-[[ -n $env_key ]] || env_key=$(current_env_key)
-[[ -n $env_key ]] || die "no environment: pass -e <client-side env key> or run 'flagsmith init'"
-env_nm=$(env_name "$env_key"); [[ -n $env_nm ]] || die "environment key not found in this project"
+[[ -n $env_key ]] || env_key=$(current_env)
+[[ -n $env_key ]] || die "no environment: pass -e <env key or name> or run 'flagsmith init'"
+env_row=$(resolve_env "$env_key"); [[ -n $env_row ]] || die "environment '$env_key' not found in this project"
+IFS=$'\t' read -r env_key env_nm <<< "$env_row"
 protected=0; is_protected_env "$env_nm" && protected=1
+if [[ $action == archive ]]; then  # project-wide: protected if any environment is
+  while IFS= read -r e; do
+    if is_protected_env "$e"; then protected=1 env_nm=$e; break; fi
+  done < <(fs environment list --jq '.[].name')
+fi
 
-fid=$(feature_id "$feature") || die "feature '$feature' not found"
-before=$(state_of "$action" "$feature" "$env_key")
+safe_name "$feature"
+fid=$(feature_id "$feature"); [[ -n $fid ]] || die "feature '$feature' not found in this project"
+before=$(state_of "$action" "$feature" "$fid" "$env_key")
 case $action in
   enable)      after="enabled=true" ;;
   disable)     after="enabled=false" ;;
   archive)     after="archived=true" ;;
-  set-weights) after="weights=$(printf '%s\n' "${weights[@]}" | sort | paste -sd, -)" ;;
+  set-weights)  # merge requested weights into the current ones; control gets the remainder
+    declare -A wmap=()
+    IFS=',' read -r -a cur <<< "${before#weights=}"
+    for kv in "${cur[@]}"; do [[ -n $kv ]] && wmap[${kv%%=*}]=${kv#*=}; done
+    [[ ${#wmap[@]} -gt 0 ]] || die "'$feature' has no variants in this environment"
+    for kv in "${weights[@]}"; do
+      k=${kv%%=*} v=${kv#*=}
+      [[ -n ${wmap[$k]+x} ]] || die "unknown variant key '$k' (have: ${!wmap[*]})"
+      [[ $v =~ ^[0-9]+$ && $v -le 100 ]] || die "weight for '$k' must be 0-100"
+      wmap[$k]=$v
+    done
+    total=0; for k in "${!wmap[@]}"; do total=$((total + wmap[$k])); done
+    [[ $total -le 100 ]] || die "variant weights add up to $total% (max 100; control gets the rest)"
+    after="weights=$(for k in "${!wmap[@]}"; do printf '%s=%s\n' "$k" "${wmap[$k]}"; done | sort | paste -sd, -)" ;;
 esac
 
 edges=$(mktemp); trap 'rm -f "$edges"' EXIT
@@ -45,39 +65,46 @@ emit() { printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$edges"; }
 emit "$F" state "env:$env_nm" "${before#*=} -> ${after#*=}"
 [[ $before == "$after" ]] && emit "$F" noop "env:$env_nm"
 
-while IFS=$'\t' read -r xid xname; do
-  [[ -n $xid ]] && emit "$F" experiment_running "experiment:$xid" "$xname"
-done < <(running_experiments "$fid" "$env_key")
+xp_envs=("$env_key")
+[[ $action == archive ]] && mapfile -t xp_envs < <(fs environment list --jq '.[].api_key')
+for xk in "${xp_envs[@]}"; do
+  while IFS=$'\t' read -r xid xname; do
+    [[ -n $xid ]] && emit "$F" experiment_running "experiment:$xid" "$xname"
+  done < <(running_experiments "$fid" "$xk")
+done
 
 if [[ $action != archive ]]; then
-  while IFS=$'\t' read -r seg en; do
-    [[ -n $seg ]] && emit "$F" segment_override "segment:$seg" "enabled=$en"
-  done < <(segment_overrides "$feature" "$env_key")
-  n_id=$(identity_override_count "$feature" "$env_key")
-  [[ ${n_id:-0} -gt 0 ]] && emit "$F" identity_overrides "identities:$n_id" "$n_id identity override(s)"
+  read -r n_seg n_id <<< "$(override_counts "$feature" "$env_key")"
+  if [[ ${n_seg:-0} -gt 0 ]]; then
+    while IFS=$'\t' read -r seg en; do
+      [[ -n $seg ]] && emit "$F" segment_override "segment:$seg" "enabled=$en"
+    done < <(segment_overrides "$feature" "$env_key")
+  fi
+  [[ ${n_id:-0} -gt 0 ]] && emit "$F" identity_overrides "identities:$n_id override(s) keep their state"
 fi
 
 names=$(mktemp); trap 'rm -f "$edges" "$names"' EXIT
 all_feature_names | grep -vxF -- "$feature" > "$names" || true
 
+scope=(-- . ':(exclude)*.md' ':(exclude)*.txt' ':(exclude).flagsmith')  # docs mention flags; they are not code paths
 while IFS=: read -r path line _; do
   [[ -n $path ]] || continue
-  case $path in
-    .github/workflows/*) ;;
-    .flagsmith/*) continue ;;
-    *) emit "$F" code_ref "file:$path" "$line"; continue ;;
-  esac
-  sed -n "${line}p" "$path" | grep -qE 'eval(uate)?[^|;&]*--test|--test[^|;&]*eval' \
-    && emit "$F" ci_gate "ci:$path" "$line"
-done < <(git grep -n -w -F -- "$feature" 2>/dev/null | head -n 200 || true)
+  if [[ $path == .github/workflows/* ]]; then
+    if sed -n "${line}p" "$path" | grep -qE 'eval(uate)?[^|;&]*--test|--test[^|;&]*eval'; then
+      emit "$F" ci_gate "ci:$path" "$line"
+    fi
+  else
+    emit "$F" code_ref "file:$path" "$line"
+  fi
+done < <(git grep -n -w -F "$feature" "${scope[@]}" 2>/dev/null | head -n 200 || true)
 
 if [[ -s $names ]]; then
   while read -r path; do
-    [[ $path == .flagsmith/* || $path == .github/* ]] && continue
-    grep -o -w -F -f "$names" "$path" 2>/dev/null | sort -u | while read -r other; do
-      emit "file:$path" co_located "flag:$other"
-    done
-  done < <(git grep -l -w -F -- "$feature" 2>/dev/null || true)
+    [[ $path == .github/* ]] && continue
+    while read -r other; do
+      [[ -n $other ]] && emit "file:$path" co_located "flag:$other"
+    done < <(grep -o -w -F -f "$names" "$path" 2>/dev/null | sort -u || true)
+  done < <(git grep -l -w -F "$feature" "${scope[@]}" 2>/dev/null || true)
 fi
 
 result=$(awk -v start="$F" -v maxdepth="$depth" -v action="$action" -v protected="$protected" \
@@ -111,8 +138,10 @@ show() {  # show <kind> <label>: up to 3 items, then "+N more"
     END { if (n) printf "  %-11s %s%s\n", label, items, (n>3?" (+" n-3 " more)":"") }'
 }
 printf 'PLAN %s\n' "$id"
-printf '  %-11s %s %s in %s%s  [%s -> %s]\n' change "$action" "$feature" "$env_nm" \
-  "$([[ $protected == 1 ]] && printf ' (protected)')" "$before" "${after#*=}"
+tag=""; [[ $protected == 1 ]] && tag=" (protected)"
+where="in $env_nm$tag"
+[[ $action == archive ]] && where="(project-wide, includes $env_nm$tag)"
+printf '  %-11s %s %s %s  [%s -> %s]\n' change "$action" "$feature" "$where" "$before" "${after#*=}"
 printf '  %-11s %s  (%s)\n' risk "$risk" "$reasons"
 show experiment_running experiment
 show code_ref code
@@ -123,6 +152,6 @@ show co_located related
 case $risk in
   NOOP|BLOCKED) printf '  %-11s nothing to apply\n' next ;;
   *) printf '  %-11s %s\n  %-11s %s\n' will-run "$fwd" rollback "$rev"
-     printf '  %-11s bash %s/apply.sh %s --confirm %s\n' next "${here#"$PWD"/}" "$id" \
-       "$([[ $protected == 1 ]] && printf '%q' "$env_nm" || printf yes)" ;;
+     printf '  %-11s human approves, then: bash %s/apply.sh %s --confirm %s\n' next "${here#"$PWD"/}" "$id" \
+       "$([[ $protected == 1 ]] && printf '<typed: %s>' "$env_nm" || printf yes)" ;;
 esac

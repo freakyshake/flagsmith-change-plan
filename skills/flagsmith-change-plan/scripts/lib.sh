@@ -65,7 +65,7 @@ confirm_change() {
     fi
     return 0
   fi
-  [[ -r /dev/tty ]] || die "approval required: re-run with --confirm $([[ $protected == 1 ]] && printf '%q' "$env_name" || printf yes) after a human approves"
+  { : < /dev/tty; } 2>/dev/null || die "approval required: re-run with --confirm $([[ $protected == 1 ]] && printf '%q' "$env_name" || printf yes) after a human approves"
   if [[ $protected == 1 ]]; then
     printf "Protected environment. Type the environment name (%s) to approve: " "$env_name" > /dev/tty
     read -r answer < /dev/tty

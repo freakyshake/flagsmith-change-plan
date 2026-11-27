@@ -32,8 +32,10 @@ END {
                                     { up("HIGH"); add(direct["ci_gate"] " CI gate(s) will fail") }
     if (direct["code_ref"] && action == "archive")
                                     { up("HIGH"); add("archiving a flag still referenced in code") }
-    if (direct["code_ref"] && protected == 1)
-                                    { up("HIGH"); add(direct["code_ref"] " code reference(s) in a protected environment") }
+    if (direct["code_ref"] && protected == 1 && action == "disable")
+                                    { up("HIGH"); add("switches off " direct["code_ref"] " live code path(s)") }
+    else if (direct["code_ref"] && protected == 1)
+                                    add(direct["code_ref"] " code path(s) affected")
     if (cnt["co_located"])          add(cnt["co_located"] " co-located flag(s) to review")
     if (reasons == "")              add("no code, CI or override impact found")
   }
